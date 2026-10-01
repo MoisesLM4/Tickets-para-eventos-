@@ -1,0 +1,3 @@
+<?php
+use Illuminate\Database\Migrations\Migration; use Illuminate\Database\Schema\Blueprint; use Illuminate\Support\Facades\Schema;
+return new class extends Migration {public function up():void{Schema::create('tickets',function(Blueprint $t){$t->id();$t->foreignId('order_id')->constrained()->cascadeOnDelete();$t->foreignId('ticket_type_id')->constrained()->restrictOnDelete();$t->string('code')->unique();$t->string('holder_name');$t->enum('status',['valid','used','cancelled'])->default('valid');$t->timestamp('used_at')->nullable();$t->timestamps();});}public function down():void{Schema::dropIfExists('tickets');}};

@@ -1,0 +1,14 @@
+<?php
+namespace App\Http\Controllers;
+use App\Models\{Event,TicketType};
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+class OrganizerController extends Controller {
+ public function dashboard(Request $request){$events=Event::where('organizer_id',$request->user()->id)->with('ticketTypes')->latest()->paginate(8);$sales=0;foreach($events as $e)$sales+= $e->ticketTypes->sum('sold');return view('organizer.dashboard',compact('events','sales'));}
+ public function create(){return view('organizer.form',['event'=>new Event(),'ticketTypes'=>collect()]);}
+ public function store(Request $request){$data=$this->validateEvent($request);$event=Event::create($data+['organizer_id'=>$request->user()->id,'slug'=>Str::slug($data['title']).'-'.Str::lower(Str::random(5))]);foreach($request->input('tickets',[]) as $ticket){if(($ticket['name']??'')!=='' && (float)($ticket['price']??0)>=0)$event->ticketTypes()->create(['name'=>$ticket['name'],'description'=>$ticket['description']??null,'price'=>$ticket['price'],'capacity'=>$ticket['capacity']??100]);}return redirect()->route('organizer.dashboard')->with('success','Evento creado correctamente.');}
+ public function edit(Request $request,Event $event){abort_unless($event->organizer_id===$request->user()->id||$request->user()->isAdmin(),403);$event->load('ticketTypes');return view('organizer.form',['event'=>$event,'ticketTypes'=>$event->ticketTypes]);}
+ public function update(Request $request,Event $event){abort_unless($event->organizer_id===$request->user()->id||$request->user()->isAdmin(),403);$data=$this->validateEvent($request);$event->update($data);foreach($request->input('tickets',[]) as $ticket){if(!empty($ticket['id'])){$t=$event->ticketTypes()->find($ticket['id']);if($t)$t->update(['name'=>$ticket['name'],'description'=>$ticket['description']??null,'price'=>$ticket['price'],'capacity'=>$ticket['capacity']]);}elseif(!empty($ticket['name'])){$event->ticketTypes()->create(['name'=>$ticket['name'],'description'=>$ticket['description']??null,'price'=>$ticket['price'],'capacity'=>$ticket['capacity']??100]);}}return redirect()->route('organizer.dashboard')->with('success','Evento actualizado.');}
+ public function destroy(Request $request,Event $event){abort_unless($event->organizer_id===$request->user()->id||$request->user()->isAdmin(),403);$event->update(['status'=>'cancelled']);return back()->with('success','Evento cancelado.');}
+ private function validateEvent(Request $request):array{return $request->validate(['title'=>'required|string|max:160','description'=>'required|string','category'=>'required|string|max:80','venue'=>'required|string|max:160','city'=>'required|string|max:80','address'=>'nullable|string|max:200','start_at'=>'required|date','end_at'=>'nullable|date|after:start_at','status'=>'required|in:draft,published,cancelled,finished','featured'=>'boolean']);}
+}
